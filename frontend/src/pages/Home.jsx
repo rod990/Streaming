@@ -13,10 +13,20 @@ function makeFallbackPoster(title) {
 export default function Home() {
   const [movies, setMovies] = useState([]);
   const [series, setSeries] = useState([]);
+  const [savedTitles, setSavedTitles] = useState([]);
   const [category, setCategory] = useState('Todas');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState(null);
+  const [toast, setToast] = useState('');
+
+  useEffect(() => {
+    api.get('/videos/favorites/me')
+      .then(({ data }) => {
+        setSavedTitles((data || []).map((v) => v.titulo.toLowerCase()));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -47,6 +57,35 @@ export default function Home() {
     };
   }, [search, category]);
 
+  const isSaved = (title) => savedTitles.includes((title || '').toLowerCase());
+
+  const handleToggleFavorite = async (item) => {
+    try {
+      const { data } = await api.post('/videos/favorites/toggle', {
+        titulo: item.titulo,
+        descripcion: item.descripcion,
+        categoria: item.categoria,
+        anio: item.anio,
+        duracion: item.duracion,
+        thumbnail_url: item.thumbnail_url,
+        video_url: item.video_url,
+        fuente: item.fuente,
+      });
+
+      const key = item.titulo.toLowerCase();
+      if (data.saved) {
+        setSavedTitles((prev) => (prev.includes(key) ? prev : [...prev, key]));
+        setToast(`"${item.titulo}" agregada a Mi Lista.`);
+      } else {
+        setSavedTitles((prev) => prev.filter((t) => t !== key));
+        setToast(`"${item.titulo}" eliminada de Mi Lista.`);
+      }
+      setTimeout(() => setToast(''), 2500);
+    } catch (error) {
+      console.error('Error al actualizar Mi Lista:', error);
+    }
+  };
+
   const featured = movies[0] || series[0];
 
   return (
@@ -66,11 +105,14 @@ export default function Home() {
               <button className="btn-primary" onClick={() => setSelectedVideo(featured)}>
                 ▶ Reproducir ahora
               </button>
+              <button className="btn-secondary" onClick={() => handleToggleFavorite(featured)}>
+                {isSaved(featured.titulo) ? '✓ En Mi Lista' : '+ Mi Lista'}
+              </button>
               <Link to="/peliculas" className="btn-secondary" style={{ textDecoration: 'none' }}>
-                Explorar Películas
+                Películas
               </Link>
               <Link to="/series" className="btn-secondary" style={{ textDecoration: 'none' }}>
-                Explorar Series
+                Series
               </Link>
             </div>
           </div>
@@ -109,6 +151,8 @@ export default function Home() {
         </div>
       </div>
 
+      {toast && <div className="toast-success">{toast}</div>}
+
       {loading ? (
         <p className="empty-msg">Cargando {category === 'Todas' ? 'recomendaciones' : category}...</p>
       ) : (
@@ -142,9 +186,14 @@ export default function Home() {
                   </div>
                   <h3>{movie.titulo}</h3>
                   <p>{movie.descripcion}</p>
-                  <button className="btn-primary sm" onClick={() => setSelectedVideo(movie)}>
-                    ▶ Reproducir
-                  </button>
+                  <div className="card-actions">
+                    <button className="btn-primary sm" onClick={() => setSelectedVideo(movie)}>
+                      ▶ Reproducir
+                    </button>
+                    <button className="btn-secondary sm" onClick={() => handleToggleFavorite(movie)}>
+                      {isSaved(movie.titulo) ? '✓ En Mi Lista' : '+ Mi Lista'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -179,9 +228,14 @@ export default function Home() {
                   </div>
                   <h3>{serie.titulo}</h3>
                   <p>{serie.descripcion}</p>
-                  <button className="btn-primary sm" onClick={() => setSelectedVideo(serie)}>
-                    ▶ Reproducir
-                  </button>
+                  <div className="card-actions">
+                    <button className="btn-primary sm" onClick={() => setSelectedVideo(serie)}>
+                      ▶ Reproducir
+                    </button>
+                    <button className="btn-secondary sm" onClick={() => handleToggleFavorite(serie)}>
+                      {isSaved(serie.titulo) ? '✓ En Mi Lista' : '+ Mi Lista'}
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

@@ -42,11 +42,20 @@ export default function CatalogBrowse({ type, user }) {
   const categories = isMovies ? MOVIE_CATEGORIES : SERIES_CATEGORIES;
 
   const [items, setItems] = useState([]);
+  const [savedTitles, setSavedTitles] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('Todas');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState(null);
   const [toast, setToast] = useState('');
+
+  useEffect(() => {
+    api.get('/videos/favorites/me')
+      .then(({ data }) => {
+        setSavedTitles((data || []).map((v) => v.titulo.toLowerCase()));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setSelectedCategory('Todas');
@@ -79,6 +88,35 @@ export default function CatalogBrowse({ type, user }) {
       clearTimeout(timer);
     };
   }, [type, isMovies, search, selectedCategory]);
+
+  const isSaved = (title) => savedTitles.includes((title || '').toLowerCase());
+
+  const handleToggleFavorite = async (item) => {
+    try {
+      const { data } = await api.post('/videos/favorites/toggle', {
+        titulo: item.titulo,
+        descripcion: item.descripcion,
+        categoria: item.categoria,
+        anio: item.anio,
+        duracion: item.duracion,
+        thumbnail_url: item.thumbnail_url,
+        video_url: item.video_url,
+        fuente: item.fuente,
+      });
+
+      const key = item.titulo.toLowerCase();
+      if (data.saved) {
+        setSavedTitles((prev) => (prev.includes(key) ? prev : [...prev, key]));
+        setToast(`"${item.titulo}" agregada a Mi Lista.`);
+      } else {
+        setSavedTitles((prev) => prev.filter((t) => t !== key));
+        setToast(`"${item.titulo}" eliminada de Mi Lista.`);
+      }
+      setTimeout(() => setToast(''), 2500);
+    } catch (error) {
+      console.error('Error al actualizar Mi Lista:', error);
+    }
+  };
 
   const handleImport = async (item) => {
     try {
@@ -180,9 +218,12 @@ export default function CatalogBrowse({ type, user }) {
                   <button className="btn-primary sm" onClick={() => setSelectedVideo(item)}>
                     ▶ Reproducir
                   </button>
+                  <button className="btn-secondary sm" onClick={() => handleToggleFavorite(item)}>
+                    {isSaved(item.titulo) ? '✓ En Mi Lista' : '+ Mi Lista'}
+                  </button>
                   {user?.rol === 'admin' && (
                     <button className="btn-secondary sm" onClick={() => handleImport(item)}>
-                      + Importar
+                      + BD
                     </button>
                   )}
                 </div>

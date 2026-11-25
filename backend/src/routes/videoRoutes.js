@@ -158,7 +158,6 @@ async function queryMoviesFromApis(term, categoryLabel) {
   const results = [];
   const seen = new Set();
 
-  // 1. Si hay texto de búsqueda en tiempo real, buscar en API IMDb + catálogo local
   if (term && term.trim()) {
     const q = term.trim().toLowerCase();
     const imdbData = await fetchJsonWithTimeout(`https://imdb.iamidiotareyoutoo.com/search?q=${encodeURIComponent(term.trim())}`);
@@ -188,7 +187,6 @@ async function queryMoviesFromApis(term, categoryLabel) {
       });
     }
 
-    // Complementar con coincidencias del catálogo completo
     Object.values(MOVIES_BY_CATEGORY).flat().forEach((m, idx) => {
       if (m.titulo.toLowerCase().includes(q) || m.cat.toLowerCase().includes(q)) {
         const key = m.titulo.toLowerCase();
@@ -202,7 +200,6 @@ async function queryMoviesFromApis(term, categoryLabel) {
     return results;
   }
 
-  // 2. Si seleccionó una categoría, devolver películas reales de esa categoría + resultados extra de IMDb
   const baseList = MOVIES_BY_CATEGORY[categoryLabel] || MOVIES_BY_CATEGORY.Todas;
   formatLocalMovies(baseList).forEach((m) => {
     seen.add(m.titulo.toLowerCase());
@@ -323,6 +320,58 @@ router.get('/favorites/me', verifyToken, async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener favoritos' });
+  }
+});
+
+// POST /api/videos/favorites/toggle (Permite guardar cualquier película o serie de la API o BD)
+router.post('/favorites/toggle', verifyToken, async (req, res) => {
+  try {
+    const { titulo, descripcion, categoria, anio, duracion, thumbnail_url, video_url, fuente } = req.body;
+    if (!titulo) {
+      return res.status(400).json({ message: 'El título es obligatorio' });
+    }
+
+    let videoId;
+    const existingVideo = await pool.query(
+      'SELECT id FROM videos WHERE LOWER(titulo) = LOWER($1) LIMIT 1',
+      [titulo.trim()]
+    );
+
+    if (existingVideo.rows.length > 0) {
+      videoId = existingVideo.rows[0].id;
+    } else {
+      const inserted = await pool.query(
+        `INSERT INTO videos (titulo, descripcion, categoria, anio, duracion, thumbnail_url, video_url, fuente)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+        [
+          titulo.trim(),
+          descripcion || '',
+          categoria || 'General',
+          Number(anio) || 2024,
+          duracion || 'HD',
+          thumbnail_url || 'https://static.tvmaze.com/uploads/images/original_untouched/396/991288.jpg',
+          video_url || REAL_STREAMS[0],
+          fuente || 'Mi Lista'
+        ]
+      );
+      videoId = inserted.rows[0].id;
+    }
+
+    const exists = await pool.query(
+      'SELECT id FROM favorites WHERE user_id = $1 AND video_id = $2',
+      [req.user.id, videoId]
+    );
+
+    if (exists.rows.length > 0) {
+      await pool.query('DELETE FROM favorites WHERE user_id = $1 AND video_id = $2', [req.user.id, videoId]);
+      return res.json({ saved: false, video_id: videoId, titulo: titulo.trim(), message: 'Eliminado de Mi Lista' });
+    } else {
+      await pool.query('INSERT INTO favorites (user_id, video_id) VALUES ($1, $2)', [req.user.id, videoId]);
+      return res.json({ saved: true, video_id: videoId, titulo: titulo.trim(), message: 'Agregado a Mi Lista' });
+    }
+  } catch (error) {
+    console.error('Error al alternar favorito:', error);
+    res.status(500).json({ message: 'Error al actualizar Mi Lista' });
   }
 });
 
