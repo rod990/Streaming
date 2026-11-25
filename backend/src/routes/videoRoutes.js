@@ -4,38 +4,52 @@ const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-async function fetchExternalMovies(term, limit = 16) {
-  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=movie&entity=movie&limit=${limit}`;
-  const response = await fetch(url);
-  const data = await response.json();
+const SAMPLE_STREAMS = [
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'
+];
 
-  return (data.results || [])
-    .filter((item) => item.previewUrl)
-    .map((item) => ({
-      id: item.trackId,
-      external_id: item.trackId,
-      titulo: item.trackName,
-      descripcion: item.longDescription || item.shortDescription || `Película recomendada: ${item.trackName}`,
-      categoria: item.primaryGenreName || 'Cine',
-      anio: item.releaseDate ? new Date(item.releaseDate).getFullYear() : 2025,
-      duracion: item.trackTimeMillis
-        ? `${Math.round(item.trackTimeMillis / 60000)} min`
-        : 'Tráiler HD',
-      thumbnail_url: item.artworkUrl100
-        ? item.artworkUrl100.replace('100x100bb', '600x600bb')
-        : 'https://via.placeholder.com/600x600?text=Sin+Imagen',
-      video_url: item.previewUrl,
-      fuente: 'API Global',
-      isExternal: true,
-    }));
+function stripHtml(html) {
+  return (html || '').replace(/<[^>]*>?/gm, '').trim();
 }
 
-// GET /api/videos/external/recommended - Peliculas recomendadas al iniciar sesion
+function mapTvMazeItem(show, index) {
+  const poster =
+    show.image?.original ||
+    show.image?.medium ||
+    'https://static.tvmaze.com/uploads/images/original_untouched/425/1064746.jpg';
+
+  return {
+    id: show.id,
+    external_id: show.id,
+    titulo: show.name,
+    descripcion: stripHtml(show.summary) || `Título destacado de ${show.name} disponible en StreamGlobal.`,
+    categoria: (show.genres && show.genres.length > 0) ? show.genres[0] : 'Cine y Series',
+    anio: show.premiered ? Number(show.premiered.slice(0, 4)) : 2025,
+    duracion: show.runtime ? `${show.runtime} min` : 'HD 1080p',
+    thumbnail_url: poster,
+    video_url: SAMPLE_STREAMS[index % SAMPLE_STREAMS.length],
+    fuente: 'API Catálogo Real',
+    rating: show.rating?.average || 8.4,
+    isExternal: true,
+  };
+}
+
+// GET /api/videos/external/recommended - Títulos reales recomendados al entrar
 router.get('/external/recommended', verifyToken, async (req, res) => {
   try {
-    const terms = ['marvel', 'star wars', 'pixar', 'inception'];
-    const randomTerm = terms[Math.floor(Math.random() * terms.length)];
-    const results = await fetchExternalMovies(randomTerm, 16);
+    const response = await fetch('https://api.tvmaze.com/shows?page=0', {
+      headers: { 'User-Agent': 'StreamGlobalApp/1.0' }
+    });
+    const data = await response.json();
+
+    const results = (data || [])
+      .filter((item) => item.image && (item.image.original || item.image.medium))
+      .slice(0, 16)
+      .map((item, idx) => mapTvMazeItem(item, idx));
+
     res.json({ results });
   } catch (error) {
     console.error('Error cargando recomendaciones:', error.message);
@@ -43,15 +57,25 @@ router.get('/external/recommended', verifyToken, async (req, res) => {
   }
 });
 
-// GET /api/videos/external/search?q=termino - Busqueda en tiempo real
+// GET /api/videos/external/search?q=termino - Búsqueda real por nombre
 router.get('/external/search', verifyToken, async (req, res) => {
   const query = (req.query.q || 'avengers').trim();
   try {
-    const results = await fetchExternalMovies(query, 20);
+    const url = `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`;
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'StreamGlobalApp/1.0' }
+    });
+    const data = await response.json();
+
+    const results = (data || [])
+      .map((entry) => entry.show)
+      .filter((show) => show && (show.image?.original || show.image?.medium))
+      .map((show, idx) => mapTvMazeItem(show, idx));
+
     res.json({ query, total: results.length, results });
   } catch (error) {
-    console.error('Error consultando API externa:', error.message);
-    res.status(500).json({ message: 'Error al buscar películas en la API' });
+    console.error('Error buscando en API:', error.message);
+    res.status(500).json({ message: 'Error al buscar títulos en la API' });
   }
 });
 
@@ -153,7 +177,7 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
         categoria || 'General',
         anio || 2025,
         duracion || '1h 30m',
-        thumbnail_url || 'https://via.placeholder.com/600x400?text=Streaming',
+        thumbnail_url || 'https://static.tvmaze.com/uploads/images/original_untouched/425/1064746.jpg',
         video_url,
         fuente || 'Panel Admin',
       ]

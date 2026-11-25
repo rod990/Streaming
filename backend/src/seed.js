@@ -4,7 +4,7 @@ require('dotenv').config();
 
 async function seed() {
   try {
-    console.log('Creando tablas en streaming_db...');
+    console.log('Creando tablas y cargando pósteres reales en streaming_db...');
 
     await pool.query(`
       DROP TABLE IF EXISTS favorites CASCADE;
@@ -58,70 +58,70 @@ async function seed() {
 
     const videosData = [
       [
-        'Tears of Steel',
-        'En un futuro distópico en Ámsterdam, un grupo de guerreros y científicos intenta salvar el mundo de robots gigantes.',
-        'Ciencia Ficción',
-        2024,
-        '12 min',
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/Tears_of_Steel_poster.jpg/640px-Tears_of_Steel_poster.jpg',
-        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
-        'Blender Studios',
-        1420
-      ],
-      [
-        'Sintel',
-        'Una joven guerrera emprende un peligroso viaje por tierras heladas para rescatar a Scales, su pequeño dragón amigo.',
-        'Fantasía',
-        2023,
-        '15 min',
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8f/Sintel_poster.jpg/640px-Sintel_poster.jpg',
-        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
-        'Blender Studios',
-        980
-      ],
-      [
-        'Big Buck Bunny',
-        'Un conejo gigante y pacífico decide darle una lección inolvidable a tres roedores que molestan a los animales del bosque.',
-        'Animación',
-        2023,
-        '10 min',
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/640px-Big_buck_bunny_poster_big.jpg',
-        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-        'Blender Studios',
-        2150
-      ],
-      [
-        'Elephants Dream',
-        'Dos personajes exploran una máquina surrealista e infinita donde cada habitación desafía la lógica.',
+        'Stranger Things',
+        'Cuando un niño desaparece, un pequeño pueblo descubre un misterio que involucra experimentos secretos y fuerzas sobrenaturales.',
         'Ciencia Ficción',
         2022,
-        '11 min',
-        'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Elephants_Dream_s5_both.jpg/640px-Elephants_Dream_s5_both.jpg',
-        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-        'Orange Open Movie',
-        640
+        '55 min',
+        'https://static.tvmaze.com/uploads/images/original_untouched/396/991288.jpg',
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+        'Catálogo Oficial',
+        2450
       ],
       [
-        'For Bigger Blazes',
-        'Acción de alta velocidad y cinematografía extrema en escenarios naturales.',
-        'Acción',
-        2025,
-        '15 seg',
-        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg',
+        'The Last of Us',
+        'Veinte años después de la destrucción de la civilización moderna, Joel es contratado para sacar a Ellie de una zona de cuarentena.',
+        'Drama',
+        2023,
+        '60 min',
+        'https://static.tvmaze.com/uploads/images/original_untouched/444/1111710.jpg',
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
+        'Catálogo Oficial',
+        1980
+      ],
+      [
+        'Breaking Bad',
+        'Un profesor de química diagnosticado con cáncer de pulmón se asocia con un exalumno para asegurar el futuro de su familia.',
+        'Crimen',
+        2013,
+        '48 min',
+        'https://static.tvmaze.com/uploads/images/original_untouched/0/2400.jpg',
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+        'Catálogo Oficial',
+        3120
+      ],
+      [
+        'The Mandalorian',
+        'Un cazarrecompensas solitario en los confines de la galaxia protege a una misteriosa criatura perseguida por remanentes imperiales.',
+        'Aventura',
+        2023,
+        '45 min',
+        'https://static.tvmaze.com/uploads/images/original_untouched/448/1121792.jpg',
+        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+        'Catálogo Oficial',
+        1760
+      ],
+      [
+        'The Witcher',
+        'Geralt de Rivia, un cazador de monstruos mutado, lucha por encontrar su lugar en un mundo donde las personas son más perversas que las bestias.',
+        'Fantasía',
+        2023,
+        '58 min',
+        'https://static.tvmaze.com/uploads/images/original_untouched/463/1158625.jpg',
         'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
         'Catálogo Oficial',
-        510
+        1540
       ],
       [
-        'For Bigger Escapes',
-        'Una aventura cinematográfica pensada para pantallas de alta definición.',
-        'Aventura',
-        2025,
-        '15 seg',
-        'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerEscapes.jpg',
+        'Arcane',
+        'En medio del conflicto entre las ciudades gemelas de Piltover y Zaun, dos hermanas luchan en bandos opuestos de una guerra tecnológica.',
+        'Animación',
+        2024,
+        '42 min',
+        'https://static.tvmaze.com/uploads/images/original_untouched/542/1356295.jpg',
         'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
         'Catálogo Oficial',
-        430
+        2890
       ]
     ];
 
@@ -138,9 +138,7 @@ async function seed() {
       await pool.query('INSERT INTO favorites (user_id, video_id) VALUES ($1, 1), ($1, 3)', [subUser.id]);
     }
 
-    console.log('Base de datos poblada correctamente.');
-    console.log('Admin: admin@streaming.cl / 123456');
-    console.log('Suscriptor: usuario@streaming.cl / 123456');
+    console.log('Base de datos actualizada con pósteres reales.');
     process.exit(0);
   } catch (error) {
     console.error('Error ejecutando seeder:', error);

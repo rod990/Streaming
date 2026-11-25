@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import VideoPlayerModal from '../components/VideoPlayerModal';
 
-const TEMAS_RAPIDOS = ['Recomendadas', 'Marvel', 'Star Wars', 'Pixar', 'Batman', 'Dune', 'Harry Potter'];
+const TEMAS_RAPIDOS = ['Recomendadas', 'Avengers', 'Batman', 'Star Wars', 'Stranger Things', 'Dune', 'Harry Potter'];
+const FALLBACK_POSTER = 'https://static.tvmaze.com/uploads/images/original_untouched/425/1064746.jpg';
 
 export default function Home({ user }) {
   const [movies, setMovies] = useState([]);
@@ -26,7 +27,7 @@ export default function Home({ user }) {
       setLocalVideos(localRes.data || []);
       setFavoritesIds((favRes.data || []).map((f) => f.id));
     } catch (error) {
-      console.error('Error cargando películas:', error);
+      console.error('Error cargando catálogo:', error);
     } finally {
       setLoading(false);
     }
@@ -82,14 +83,14 @@ export default function Home({ user }) {
         duracion: movie.duracion,
         thumbnail_url: movie.thumbnail_url,
         video_url: movie.video_url,
-        fuente: 'API Películas',
+        fuente: 'API Catálogo Real',
       });
-      setToast(`"${movie.titulo}" agregada al catálogo de la plataforma.`);
+      setToast(`"${movie.titulo}" agregada al catálogo de la base de datos.`);
       setTimeout(() => setToast(''), 3000);
       const localRes = await api.get('/videos');
       setLocalVideos(localRes.data || []);
     } catch (error) {
-      alert(error.response?.data?.message || 'Error al guardar película');
+      alert(error.response?.data?.message || 'Error al guardar título');
     }
   };
 
@@ -114,16 +115,16 @@ export default function Home({ user }) {
         <section
           className="hero"
           style={{
-            backgroundImage: `linear-gradient(to right, #0b0d13 38%, rgba(11,13,19,0.25)), url(${featured.thumbnail_url})`,
+            backgroundImage: `linear-gradient(to right, #0b0d13 42%, rgba(11,13,19,0.2)), url(${featured.thumbnail_url})`,
           }}
         >
           <div className="hero-content">
-            <span className="tag">Destacada • {featured.categoria} ({featured.anio})</span>
+            <span className="tag">Destacado • {featured.categoria} ({featured.anio})</span>
             <h1>{featured.titulo}</h1>
             <p>{featured.descripcion}</p>
             <div className="hero-actions">
               <button className="btn-primary" onClick={() => setSelectedVideo(featured)}>
-                ▶ Ver tráiler ahora
+                ▶ Reproducir ahora
               </button>
               {user?.rol === 'admin' && (
                 <button className="btn-secondary" onClick={() => handleSaveToCatalog(featured)}>
@@ -151,7 +152,7 @@ export default function Home({ user }) {
         <form onSubmit={handleSearchSubmit} className="search-box">
           <input
             type="text"
-            placeholder="Buscar películas en la API..."
+            placeholder="Buscar películas o series reales..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -162,31 +163,35 @@ export default function Home({ user }) {
       {toast && <div className="toast-success">{toast}</div>}
 
       <h2 className="section-title">
-        {activeTopic === 'Recomendadas' ? 'Películas Recomendadas para Ti' : activeTopic} ({movies.length})
+        {activeTopic === 'Recomendadas' ? 'Películas y Series Recomendadas' : activeTopic} ({movies.length})
       </h2>
 
       {loading ? (
-        <p className="empty-msg">Cargando películas desde la API...</p>
+        <p className="empty-msg">Cargando catálogo real desde la API...</p>
       ) : movies.length === 0 ? (
-        <p className="empty-msg">No se encontraron películas para "{search}".</p>
+        <p className="empty-msg">No se encontraron resultados para "{search}".</p>
       ) : (
         <div className="video-grid">
           {movies.map((movie) => (
             <div key={movie.external_id} className="video-card">
-              <div className="thumb-box poster-box" onClick={() => setSelectedVideo(movie)}>
-                <img src={movie.thumbnail_url} alt={movie.titulo} />
+              <div className="thumb-box" style={{ height: '320px' }} onClick={() => setSelectedVideo(movie)}>
+                <img
+                  src={movie.thumbnail_url}
+                  alt={movie.titulo}
+                  onError={(e) => { e.currentTarget.src = FALLBACK_POSTER; }}
+                />
                 <div className="play-overlay">▶</div>
               </div>
               <div className="card-body">
                 <div className="card-meta">
                   <span>{movie.categoria} • {movie.anio}</span>
-                  <span>{movie.duracion}</span>
+                  <span>⭐ {movie.rating}</span>
                 </div>
                 <h3>{movie.titulo}</h3>
                 <p>{movie.descripcion}</p>
                 <div className="card-actions">
                   <button className="btn-primary sm" onClick={() => setSelectedVideo(movie)}>
-                    ▶ Reproducir
+                    ▶ Ver ahora
                   </button>
                   {user?.rol === 'admin' && (
                     <button className="btn-secondary sm" onClick={() => handleSaveToCatalog(movie)}>
@@ -208,8 +213,12 @@ export default function Home({ user }) {
           <div className="video-grid">
             {localVideos.map((video) => (
               <div key={video.id} className="video-card">
-                <div className="thumb-box" onClick={() => setSelectedVideo(video)}>
-                  <img src={video.thumbnail_url} alt={video.titulo} />
+                <div className="thumb-box" style={{ height: '320px' }} onClick={() => setSelectedVideo(video)}>
+                  <img
+                    src={video.thumbnail_url}
+                    alt={video.titulo}
+                    onError={(e) => { e.currentTarget.src = FALLBACK_POSTER; }}
+                  />
                   <div className="play-overlay">▶</div>
                 </div>
                 <div className="card-body">
