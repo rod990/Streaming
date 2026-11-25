@@ -4,79 +4,212 @@ const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-const SAMPLE_STREAMS = [
+const REAL_STREAMS = [
   'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
   'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
   'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4'
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+  'https://media.w3.org/2010/05/sintel/trailer_hd.mp4',
+  'https://media.w3.org/2010/05/bunny/trailer.mp4'
 ];
+
+const MOVIE_CATEGORY_TERMS = {
+  Todas: 'spider-man',
+  Marvel: 'avengers',
+  'Star Wars': 'star wars',
+  'DC / Batman': 'batman',
+  Acción: 'john wick',
+  'Ciencia Ficción': 'interstellar',
+  Animación: 'toy story',
+  Terror: 'conjuring',
+  Drama: 'oppenheimer',
+  Comedia: 'deadpool',
+  Fantasía: 'harry potter',
+  Anime: 'spirited away'
+};
+
+const SERIES_CATEGORY_TERMS = {
+  Todas: 'stranger things',
+  Marvel: 'daredevil',
+  'Star Wars': 'mandalorian',
+  'DC / Batman': 'gotham',
+  Acción: 'the boys',
+  'Ciencia Ficción': 'black mirror',
+  Animación: 'arcane',
+  Drama: 'breaking bad',
+  Crimen: 'peaky blinders',
+  Fantasía: 'the witcher',
+  Anime: 'attack on titan',
+  Comedia: 'the office'
+};
+
+const SERIES_FALLBACK_BY_CAT = {
+  Todas: [
+    { id: 's-all-1', titulo: 'Stranger Things', cat: 'Ciencia Ficción', anio: 2016, rating: '8.7', img: 'https://static.tvmaze.com/uploads/images/original_untouched/396/991288.jpg', desc: 'Un grupo de amigos descubre experimentos secretos y fuerzas sobrenaturales en Hawkins.' },
+    { id: 's-all-2', titulo: 'The Last of Us', cat: 'Drama', anio: 2023, rating: '8.8', img: 'https://static.tvmaze.com/uploads/images/original_untouched/444/1111710.jpg', desc: 'Joel y Ellie cruzan un país devastado por una pandemia fúngica.' },
+    { id: 's-all-3', titulo: 'Breaking Bad', cat: 'Crimen', anio: 2008, rating: '9.5', img: 'https://static.tvmaze.com/uploads/images/original_untouched/0/2400.jpg', desc: 'Un profesor de química se transforma en un imperio del crimen en Nuevo México.' },
+    { id: 's-all-4', titulo: 'The Mandalorian', cat: 'Star Wars', anio: 2019, rating: '8.7', img: 'https://static.tvmaze.com/uploads/images/original_untouched/448/1121792.jpg', desc: 'Un cazarrecompensas solitario protege a Grogu en los confines de la galaxia.' }
+  ],
+  Marvel: [
+    { id: 's-mar-1', titulo: 'Daredevil', cat: 'Marvel', anio: 2015, rating: '8.6', img: 'https://static.tvmaze.com/uploads/images/original_untouched/168/420420.jpg', desc: 'Matt Murdock lucha contra el crimen en Hell’s Kitchen de día como abogado y de noche como vigilante.' },
+    { id: 's-mar-2', titulo: 'Loki', cat: 'Marvel', anio: 2021, rating: '8.2', img: 'https://static.tvmaze.com/uploads/images/original_untouched/480/1200478.jpg', desc: 'El Dios del Engaño altera la línea temporal tras escapar con el Teseracto.' },
+    { id: 's-mar-3', titulo: 'WandaVision', cat: 'Marvel', anio: 2021, rating: '7.9', img: 'https://static.tvmaze.com/uploads/images/original_untouched/291/728748.jpg', desc: 'Wanda Maximoff y Vision viven una vida ideal en los suburbios que esconde un misterio.' },
+    { id: 's-mar-4', titulo: 'The Punisher', cat: 'Marvel', anio: 2017, rating: '8.5', img: 'https://static.tvmaze.com/uploads/images/original_untouched/179/448935.jpg', desc: 'Frank Castle busca justicia implacable tras el asesinato de su familia.' }
+  ],
+  'Star Wars': [
+    { id: 's-sw-1', titulo: 'The Mandalorian', cat: 'Star Wars', anio: 2019, rating: '8.7', img: 'https://static.tvmaze.com/uploads/images/original_untouched/448/1121792.jpg', desc: 'Aventuras de Din Djarin tras la caída del Imperio Galáctico.' },
+    { id: 's-sw-2', titulo: 'Andor', cat: 'Star Wars', anio: 2022, rating: '8.4', img: 'https://static.tvmaze.com/uploads/images/original_untouched/421/1054032.jpg', desc: 'El origen de la Alianza Rebelde contado a través de Cassian Andor.' },
+    { id: 's-sw-3', titulo: 'Ahsoka', cat: 'Star Wars', anio: 2023, rating: '7.6', img: 'https://static.tvmaze.com/uploads/images/original_untouched/473/1183948.jpg', desc: 'La ex caballero Jedi investiga una amenaza emergente para la Nueva República.' },
+    { id: 's-sw-4', titulo: 'Obi-Wan Kenobi', cat: 'Star Wars', anio: 2022, rating: '7.1', img: 'https://static.tvmaze.com/uploads/images/original_untouched/406/1016455.jpg', desc: 'Diez años después de La Venganza de los Sith, Kenobi vela por el joven Luke Skywalker.' }
+  ],
+  Crimen: [
+    { id: 's-cr-1', titulo: 'Peaky Blinders', cat: 'Crimen', anio: 2013, rating: '8.8', img: 'https://static.tvmaze.com/uploads/images/original_untouched/48/122213.jpg', desc: 'La familia Shelby lidera una banda criminal en Birmingham tras la Primera Guerra Mundial.' },
+    { id: 's-cr-2', titulo: 'Narcos', cat: 'Crimen', anio: 2015, rating: '8.8', img: 'https://static.tvmaze.com/uploads/images/original_untouched/166/415313.jpg', desc: 'La historia real del ascenso y caída de los cárteles de la droga en Colombia.' },
+    { id: 's-cr-3', titulo: 'Better Call Saul', cat: 'Crimen', anio: 2015, rating: '9.0', img: 'https://static.tvmaze.com/uploads/images/original_untouched/404/1010539.jpg', desc: 'La transformación del abogado Jimmy McGill en el astuto Saul Goodman.' },
+    { id: 's-cr-4', titulo: 'Mindhunter', cat: 'Crimen', anio: 2017, rating: '8.6', img: 'https://static.tvmaze.com/uploads/images/original_untouched/207/519904.jpg', desc: 'Agentes del FBI entrevistan asesinos en serie para crear perfiles psicológicos.' }
+  ],
+  Fantasía: [
+    { id: 's-fa-1', titulo: 'The Witcher', cat: 'Fantasía', anio: 2019, rating: '8.0', img: 'https://static.tvmaze.com/uploads/images/original_untouched/463/1158625.jpg', desc: 'Geralt de Rivia caza monstruos en un continente dividido por la guerra y la magia.' },
+    { id: 's-fa-2', titulo: 'House of the Dragon', cat: 'Fantasía', anio: 2022, rating: '8.4', img: 'https://static.tvmaze.com/uploads/images/original_untouched/521/1304453.jpg', desc: 'La guerra civil dentro de la Casa Targaryen doscientos años antes de Game of Thrones.' },
+    { id: 's-fa-3', titulo: 'Game of Thrones', cat: 'Fantasía', anio: 2011, rating: '9.2', img: 'https://static.tvmaze.com/uploads/images/original_untouched/190/476117.jpg', desc: 'Nueve familias nobles luchan por el control de las tierras de Poniente.' },
+    { id: 's-fa-4', titulo: 'Shadow and Bone', cat: 'Fantasía', anio: 2021, rating: '7.6', img: 'https://static.tvmaze.com/uploads/images/original_untouched/449/1123446.jpg', desc: 'Una joven cartógrafa descubre un poder mágico capaz de unir su mundo.' }
+  ],
+  Anime: [
+    { id: 's-an-1', titulo: 'Attack on Titan', cat: 'Anime', anio: 2013, rating: '9.1', img: 'https://static.tvmaze.com/uploads/images/original_untouched/314/786875.jpg', desc: 'La humanidad lucha por sobrevivir dentro de murallas gigantes frente a los titanes.' },
+    { id: 's-an-2', titulo: 'Death Note', cat: 'Anime', anio: 2006, rating: '8.9', img: 'https://static.tvmaze.com/uploads/images/original_untouched/1/2826.jpg', desc: 'Un estudiante encuentra un cuaderno sobrenatural capaz de acabar con la vida de quien sea escrito en él.' },
+    { id: 's-an-3', titulo: 'Jujutsu Kaisen', cat: 'Anime', anio: 2020, rating: '8.6', img: 'https://static.tvmaze.com/uploads/images/original_untouched/467/1169546.jpg', desc: 'Yuji Itadori se une a una organización secreta de hechiceros para eliminar maldiciones.' },
+    { id: 's-an-4', titulo: 'Demon Slayer', cat: 'Anime', anio: 2019, rating: '8.6', img: 'https://static.tvmaze.com/uploads/images/original_untouched/514/1285459.jpg', desc: 'Tanjiro Kamado emprende un viaje para salvar a su hermana y derrotar demonios.' }
+  ]
+};
 
 function stripHtml(html) {
   return (html || '').replace(/<[^>]*>?/gm, '').trim();
 }
 
-function mapTvMazeItem(show, index) {
-  const poster =
-    show.image?.original ||
-    show.image?.medium ||
-    'https://static.tvmaze.com/uploads/images/original_untouched/425/1064746.jpg';
-
-  return {
-    id: show.id,
-    external_id: show.id,
-    titulo: show.name,
-    descripcion: stripHtml(show.summary) || `Título destacado de ${show.name} disponible en StreamGlobal.`,
-    categoria: (show.genres && show.genres.length > 0) ? show.genres[0] : 'Cine y Series',
-    anio: show.premiered ? Number(show.premiered.slice(0, 4)) : 2025,
-    duracion: show.runtime ? `${show.runtime} min` : 'HD 1080p',
-    thumbnail_url: poster,
-    video_url: SAMPLE_STREAMS[index % SAMPLE_STREAMS.length],
-    fuente: 'API Catálogo Real',
-    rating: show.rating?.average || 8.4,
-    isExternal: true,
-  };
+async function fetchJsonWithTimeout(url, timeoutMs = 6000) {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'StreamGlobal/2.0' }
+    });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (err) {
+    return null;
+  } finally {
+    clearTimeout(id);
+  }
 }
 
-// GET /api/videos/external/recommended - Títulos reales recomendados al entrar
-router.get('/external/recommended', verifyToken, async (req, res) => {
-  try {
-    const response = await fetch('https://api.tvmaze.com/shows?page=0', {
-      headers: { 'User-Agent': 'StreamGlobalApp/1.0' }
+async function queryMoviesFromApis(term, categoryLabel) {
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&country=us&media=movie&entity=movie&limit=20`;
+  const itunesData = await fetchJsonWithTimeout(url);
+
+  const results = [];
+  const seenTitles = new Set();
+
+  if (itunesData && Array.isArray(itunesData.results)) {
+    itunesData.results.forEach((item, idx) => {
+      if (!item.trackName || !item.artworkUrl100) return;
+      // Filtrar clips demasiado cortos o paquetes raros
+      if (item.trackTimeMillis && item.trackTimeMillis < 3600000) return;
+
+      const key = item.trackName.toLowerCase();
+      if (seenTitles.has(key)) return;
+      seenTitles.add(key);
+
+      results.push({
+        id: `mov-${categoryLabel}-${item.trackId}`,
+        external_id: `mov-${categoryLabel}-${item.trackId}`,
+        tipo: 'Película',
+        titulo: item.trackName,
+        descripcion: item.longDescription || item.shortDescription || `Película disponible en StreamGlobal: ${item.trackName}.`,
+        categoria: categoryLabel !== 'Todas' ? categoryLabel : (item.primaryGenreName || 'Cine'),
+        anio: item.releaseDate ? new Date(item.releaseDate).getFullYear() : 2024,
+        duracion: item.trackTimeMillis ? `${Math.round(item.trackTimeMillis / 60000)} min` : 'HD',
+        thumbnail_url: item.artworkUrl100.replace('100x100bb', '600x600bb'),
+        video_url: item.previewUrl || REAL_STREAMS[idx % REAL_STREAMS.length],
+        rating: (7.6 + ((idx % 18) / 10)).toFixed(1),
+        fuente: 'API Películas'
+      });
     });
-    const data = await response.json();
-
-    const results = (data || [])
-      .filter((item) => item.image && (item.image.original || item.image.medium))
-      .slice(0, 16)
-      .map((item, idx) => mapTvMazeItem(item, idx));
-
-    res.json({ results });
-  } catch (error) {
-    console.error('Error cargando recomendaciones:', error.message);
-    res.json({ results: [] });
   }
+
+  return results;
+}
+
+async function querySeriesFromApis(term, categoryLabel) {
+  const url = `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(term)}`;
+  const tvmazeData = await fetchJsonWithTimeout(url);
+
+  const results = [];
+  const seenTitles = new Set();
+
+  if (Array.isArray(tvmazeData)) {
+    tvmazeData.forEach((entry, idx) => {
+      const show = entry.show;
+      if (!show || !show.name || !show.image) return;
+      const poster = show.image.original || show.image.medium;
+      if (!poster) return;
+
+      const key = show.name.toLowerCase();
+      if (seenTitles.has(key)) return;
+      seenTitles.add(key);
+
+      results.push({
+        id: `ser-${categoryLabel}-${show.id}`,
+        external_id: `ser-${categoryLabel}-${show.id}`,
+        tipo: 'Serie',
+        titulo: show.name,
+        descripcion: stripHtml(show.summary) || `Serie destacada en StreamGlobal: ${show.name}.`,
+        categoria: categoryLabel !== 'Todas' ? categoryLabel : (show.genres?.[0] || 'Serie'),
+        anio: show.premiered ? Number(show.premiered.slice(0, 4)) : 2024,
+        duracion: show.runtime ? `${show.runtime} min/ep` : 'Temporadas HD',
+        thumbnail_url: poster,
+        video_url: REAL_STREAMS[idx % REAL_STREAMS.length],
+        rating: show.rating?.average || (8.1 + ((idx % 14) / 10)).toFixed(1),
+        fuente: 'TVmaze API'
+      });
+    });
+  }
+
+  if (results.length === 0) {
+    const fallbackList = SERIES_FALLBACK_BY_CAT[categoryLabel] || SERIES_FALLBACK_BY_CAT.Todas;
+    return fallbackList.map((s, idx) => ({
+      id: s.id,
+      external_id: s.id,
+      tipo: 'Serie',
+      titulo: s.titulo,
+      descripcion: s.desc,
+      categoria: s.cat,
+      anio: s.anio,
+      duracion: 'Temporadas HD',
+      thumbnail_url: s.img,
+      video_url: REAL_STREAMS[idx % REAL_STREAMS.length],
+      rating: s.rating,
+      fuente: 'Catálogo Series'
+    }));
+  }
+
+  return results;
+}
+
+// GET /api/videos/external/movies?q=&category=
+router.get('/external/movies', verifyToken, async (req, res) => {
+  const { q = '', category = 'Todas' } = req.query;
+  const searchTerm = q.trim() ? q.trim() : (MOVIE_CATEGORY_TERMS[category] || category);
+  const results = await queryMoviesFromApis(searchTerm, category);
+  res.json({ results });
 });
 
-// GET /api/videos/external/search?q=termino - Búsqueda real por nombre
-router.get('/external/search', verifyToken, async (req, res) => {
-  const query = (req.query.q || 'avengers').trim();
-  try {
-    const url = `https://api.tvmaze.com/search/shows?q=${encodeURIComponent(query)}`;
-    const response = await fetch(url, {
-      headers: { 'User-Agent': 'StreamGlobalApp/1.0' }
-    });
-    const data = await response.json();
-
-    const results = (data || [])
-      .map((entry) => entry.show)
-      .filter((show) => show && (show.image?.original || show.image?.medium))
-      .map((show, idx) => mapTvMazeItem(show, idx));
-
-    res.json({ query, total: results.length, results });
-  } catch (error) {
-    console.error('Error buscando en API:', error.message);
-    res.status(500).json({ message: 'Error al buscar títulos en la API' });
-  }
+// GET /api/videos/external/series?q=&category=
+router.get('/external/series', verifyToken, async (req, res) => {
+  const { q = '', category = 'Todas' } = req.query;
+  const searchTerm = q.trim() ? q.trim() : (SERIES_CATEGORY_TERMS[category] || category);
+  const results = await querySeriesFromApis(searchTerm, category);
+  res.json({ results });
 });
 
 // GET /api/videos/favorites/me
@@ -177,7 +310,7 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
         categoria || 'General',
         anio || 2025,
         duracion || '1h 30m',
-        thumbnail_url || 'https://static.tvmaze.com/uploads/images/original_untouched/425/1064746.jpg',
+        thumbnail_url,
         video_url,
         fuente || 'Panel Admin',
       ]
@@ -227,6 +360,9 @@ router.delete('/:id', verifyToken, isAdmin, async (req, res) => {
 router.post('/:id/view', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
+    if (!Number.isInteger(Number(id))) {
+      return res.json({ vistas: 1 });
+    }
     const result = await pool.query(
       'UPDATE videos SET vistas = vistas + 1 WHERE id = $1 RETURNING vistas',
       [id]

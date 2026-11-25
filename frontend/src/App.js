@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Home from './pages/Home';
+import CatalogBrowse from './pages/CatalogBrowse';
 import MyList from './pages/MyList';
 import AdminPanel from './pages/AdminPanel';
 import './App.css';
@@ -28,6 +29,8 @@ export default function App() {
       <Navbar user={user} onLogout={handleLogout} />
       <Routes>
         <Route path="/" element={<Home user={user} />} />
+        <Route path="/peliculas" element={<CatalogBrowse type="movies" user={user} />} />
+        <Route path="/series" element={<CatalogBrowse type="series" user={user} />} />
         <Route path="/mi-lista" element={<MyList />} />
         <Route
           path="/admin"

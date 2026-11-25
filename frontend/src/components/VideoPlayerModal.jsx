@@ -1,17 +1,21 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 
+const BACKUP_VIDEO = 'https://media.w3.org/2010/05/sintel/trailer_hd.mp4';
+
 export default function VideoPlayerModal({ video, onClose }) {
+  const [src, setSrc] = useState('');
+
   useEffect(() => {
-    if (video?.id) {
-      api.post(`/videos/${video.id}/view`).catch(() => {});
+    if (video) {
+      setSrc(video.video_url || BACKUP_VIDEO);
+      if (video.id && typeof video.id === 'number') {
+        api.post(`/videos/${video.id}/view`).catch(() => {});
+      }
     }
   }, [video]);
 
   if (!video) return null;
-
-  const isYouTube =
-    video.video_url.includes('youtube.com') || video.video_url.includes('youtu.be');
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -25,17 +29,20 @@ export default function VideoPlayerModal({ video, onClose }) {
         </div>
 
         <div className="player-wrapper">
-          {isYouTube ? (
-            <iframe
-              src={video.video_url}
-              title={video.titulo}
-              frameBorder="0"
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-            />
-          ) : (
-            <video src={video.video_url} controls autoPlay playsInline />
-          )}
+          <video
+            key={src}
+            src={src}
+            poster={video.thumbnail_url}
+            controls
+            autoPlay
+            muted
+            playsInline
+            onError={() => {
+              if (src !== BACKUP_VIDEO) {
+                setSrc(BACKUP_VIDEO);
+              }
+            }}
+          />
         </div>
 
         <p className="modal-desc">{video.descripcion}</p>

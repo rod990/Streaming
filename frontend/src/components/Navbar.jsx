@@ -12,7 +12,9 @@ export default function Navbar({ user, onLogout }) {
           STREAM<span>GLOBAL</span>
         </Link>
         <nav className="nav-links">
-          <Link to="/" className={isActive('/')}>Películas y Catálogo</Link>
+          <Link to="/" className={isActive('/')}>Inicio</Link>
+          <Link to="/peliculas" className={isActive('/peliculas')}>Películas</Link>
+          <Link to="/series" className={isActive('/series')}>Series</Link>
           <Link to="/mi-lista" className={isActive('/mi-lista')}>Mi Lista</Link>
           {user?.rol === 'admin' && (
             <Link to="/admin" className={isActive('/admin')}>Panel Admin</Link>

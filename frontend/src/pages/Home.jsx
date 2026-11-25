@@ -1,113 +1,53 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 import VideoPlayerModal from '../components/VideoPlayerModal';
 
-const TEMAS_RAPIDOS = ['Recomendadas', 'Avengers', 'Batman', 'Star Wars', 'Stranger Things', 'Dune', 'Harry Potter'];
-const FALLBACK_POSTER = 'https://static.tvmaze.com/uploads/images/original_untouched/425/1064746.jpg';
+const HOME_CATEGORIES = ['Todas', 'Marvel', 'Star Wars', 'DC / Batman', 'Acción', 'Ciencia Ficción', 'Animación', 'Drama', 'Fantasía', 'Anime'];
 
-export default function Home({ user }) {
+function makeFallbackPoster(title) {
+  const safe = encodeURIComponent((title || 'StreamGlobal').slice(0, 24));
+  return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='600'><rect width='100%' height='100%' fill='%23161b28'/><text x='50%' y='50%' fill='%23e50914' font-family='Arial' font-size='22' font-weight='bold' text-anchor='middle'>${safe}</text></svg>`;
+}
+
+export default function Home() {
   const [movies, setMovies] = useState([]);
-  const [localVideos, setLocalVideos] = useState([]);
-  const [favoritesIds, setFavoritesIds] = useState([]);
-  const [activeTopic, setActiveTopic] = useState('Recomendadas');
+  const [series, setSeries] = useState([]);
+  const [category, setCategory] = useState('Todas');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState(null);
-  const [toast, setToast] = useState('');
-
-  const loadRecommended = async () => {
-    setLoading(true);
-    try {
-      const [recRes, localRes, favRes] = await Promise.all([
-        api.get('/videos/external/recommended'),
-        api.get('/videos'),
-        api.get('/videos/favorites/me'),
-      ]);
-      setMovies(recRes.data.results || []);
-      setLocalVideos(localRes.data || []);
-      setFavoritesIds((favRes.data || []).map((f) => f.id));
-    } catch (error) {
-      console.error('Error cargando catálogo:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const searchMoviesApi = async (term) => {
-    if (!term.trim()) {
-      setActiveTopic('Recomendadas');
-      loadRecommended();
-      return;
-    }
-    setLoading(true);
-    try {
-      const { data } = await api.get('/videos/external/search', {
-        params: { q: term },
-      });
-      setMovies(data.results || []);
-    } catch (error) {
-      console.error('Error buscando en API:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
-    loadRecommended();
-  }, []);
+    let active = true;
+    setLoading(true);
+    setMovies([]);
+    setSeries([]);
 
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    setActiveTopic(search.trim() ? `Resultados: "${search}"` : 'Recomendadas');
-    searchMoviesApi(search);
-  };
-
-  const handleTopicClick = (topic) => {
-    setActiveTopic(topic);
-    if (topic === 'Recomendadas') {
-      setSearch('');
-      loadRecommended();
-    } else {
-      setSearch(topic);
-      searchMoviesApi(topic);
-    }
-  };
-
-  const handleSaveToCatalog = async (movie) => {
-    try {
-      await api.post('/videos', {
-        titulo: movie.titulo,
-        descripcion: movie.descripcion,
-        categoria: movie.categoria,
-        anio: movie.anio,
-        duracion: movie.duracion,
-        thumbnail_url: movie.thumbnail_url,
-        video_url: movie.video_url,
-        fuente: 'API Catálogo Real',
-      });
-      setToast(`"${movie.titulo}" agregada al catálogo de la base de datos.`);
-      setTimeout(() => setToast(''), 3000);
-      const localRes = await api.get('/videos');
-      setLocalVideos(localRes.data || []);
-    } catch (error) {
-      alert(error.response?.data?.message || 'Error al guardar título');
-    }
-  };
-
-  const toggleFavorite = async (videoId) => {
-    try {
-      const { data } = await api.post(`/videos/favorites/${videoId}`);
-      if (data.saved) {
-        setFavoritesIds([...favoritesIds, videoId]);
-      } else {
-        setFavoritesIds(favoritesIds.filter((id) => id !== videoId));
+    const timer = setTimeout(async () => {
+      try {
+        const [movRes, serRes] = await Promise.all([
+          api.get('/videos/external/movies', { params: { q: search, category } }),
+          api.get('/videos/external/series', { params: { q: search, category } }),
+        ]);
+        if (active) {
+          setMovies((movRes.data.results || []).slice(0, 8));
+          setSeries((serRes.data.results || []).slice(0, 8));
+        }
+      } catch (error) {
+        console.error('Error cargando inicio:', error);
+      } finally {
+        if (active) setLoading(false);
       }
-    } catch (error) {
-      console.error('Error en Mi Lista:', error);
-    }
-  };
+    }, 300);
 
-  const featured = movies[0];
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [search, category]);
+
+  const featured = movies[0] || series[0];
 
   return (
     <div className="container">
@@ -119,18 +59,19 @@ export default function Home({ user }) {
           }}
         >
           <div className="hero-content">
-            <span className="tag">Destacado • {featured.categoria} ({featured.anio})</span>
+            <span className="tag">Destacado • {featured.tipo} • {featured.categoria}</span>
             <h1>{featured.titulo}</h1>
             <p>{featured.descripcion}</p>
             <div className="hero-actions">
               <button className="btn-primary" onClick={() => setSelectedVideo(featured)}>
                 ▶ Reproducir ahora
               </button>
-              {user?.rol === 'admin' && (
-                <button className="btn-secondary" onClick={() => handleSaveToCatalog(featured)}>
-                  + Guardar en Catálogo BD
-                </button>
-              )}
+              <Link to="/peliculas" className="btn-secondary" style={{ textDecoration: 'none' }}>
+                Explorar Películas
+              </Link>
+              <Link to="/series" className="btn-secondary" style={{ textDecoration: 'none' }}>
+                Explorar Series
+              </Link>
             </div>
           </div>
         </section>
@@ -138,104 +79,109 @@ export default function Home({ user }) {
 
       <div className="filters-bar">
         <div className="pills">
-          {TEMAS_RAPIDOS.map((topic) => (
+          {HOME_CATEGORIES.map((cat) => (
             <button
-              key={topic}
-              className={activeTopic === topic ? 'pill active' : 'pill'}
-              onClick={() => handleTopicClick(topic)}
+              key={cat}
+              className={category === cat && !search ? 'pill active' : 'pill'}
+              onClick={() => {
+                setSearch('');
+                setCategory(cat);
+              }}
             >
-              {topic}
+              {cat}
             </button>
           ))}
         </div>
 
-        <form onSubmit={handleSearchSubmit} className="search-box">
+        <div className="search-box" style={{ minWidth: '290px' }}>
           <input
             type="text"
-            placeholder="Buscar películas o series reales..."
+            style={{ width: '100%' }}
+            placeholder="Buscar películas o series en tiempo real..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <button type="submit" className="btn-primary">Buscar</button>
-        </form>
+          {search && (
+            <button type="button" className="btn-secondary" onClick={() => setSearch('')}>
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
-      {toast && <div className="toast-success">{toast}</div>}
-
-      <h2 className="section-title">
-        {activeTopic === 'Recomendadas' ? 'Películas y Series Recomendadas' : activeTopic} ({movies.length})
-      </h2>
-
       {loading ? (
-        <p className="empty-msg">Cargando catálogo real desde la API...</p>
-      ) : movies.length === 0 ? (
-        <p className="empty-msg">No se encontraron resultados para "{search}".</p>
+        <p className="empty-msg">Cargando {category === 'Todas' ? 'recomendaciones' : category}...</p>
       ) : (
-        <div className="video-grid">
-          {movies.map((movie) => (
-            <div key={movie.external_id} className="video-card">
-              <div className="thumb-box" style={{ height: '320px' }} onClick={() => setSelectedVideo(movie)}>
-                <img
-                  src={movie.thumbnail_url}
-                  alt={movie.titulo}
-                  onError={(e) => { e.currentTarget.src = FALLBACK_POSTER; }}
-                />
-                <div className="play-overlay">▶</div>
-              </div>
-              <div className="card-body">
-                <div className="card-meta">
-                  <span>{movie.categoria} • {movie.anio}</span>
-                  <span>⭐ {movie.rating}</span>
-                </div>
-                <h3>{movie.titulo}</h3>
-                <p>{movie.descripcion}</p>
-                <div className="card-actions">
-                  <button className="btn-primary sm" onClick={() => setSelectedVideo(movie)}>
-                    ▶ Ver ahora
-                  </button>
-                  {user?.rol === 'admin' && (
-                    <button className="btn-secondary sm" onClick={() => handleSaveToCatalog(movie)}>
-                      + Importar
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {localVideos.length > 0 && (
         <>
-          <h2 className="section-title" style={{ marginTop: '2.8rem' }}>
-            Catálogo Guardado en Base de Datos ({localVideos.length})
-          </h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 className="section-title">
+              {search ? `Películas: "${search}"` : `Películas • ${category}`} ({movies.length})
+            </h2>
+            <Link to="/peliculas" style={{ color: '#f87171', textDecoration: 'none', fontSize: '0.9rem' }}>
+              Ver todas las películas →
+            </Link>
+          </div>
           <div className="video-grid">
-            {localVideos.map((video) => (
-              <div key={video.id} className="video-card">
-                <div className="thumb-box" style={{ height: '320px' }} onClick={() => setSelectedVideo(video)}>
+            {movies.map((movie) => (
+              <div key={movie.external_id} className="video-card">
+                <div className="thumb-box" style={{ height: '320px' }} onClick={() => setSelectedVideo(movie)}>
                   <img
-                    src={video.thumbnail_url}
-                    alt={video.titulo}
-                    onError={(e) => { e.currentTarget.src = FALLBACK_POSTER; }}
+                    src={movie.thumbnail_url}
+                    alt={movie.titulo}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = makeFallbackPoster(movie.titulo);
+                    }}
                   />
                   <div className="play-overlay">▶</div>
                 </div>
                 <div className="card-body">
                   <div className="card-meta">
-                    <span>{video.categoria}</span>
-                    <span>👁 {video.vistas}</span>
+                    <span>{movie.categoria} • {movie.anio}</span>
+                    <span>⭐ {movie.rating}</span>
                   </div>
-                  <h3>{video.titulo}</h3>
-                  <p>{video.descripcion}</p>
-                  <div className="card-actions">
-                    <button className="btn-primary sm" onClick={() => setSelectedVideo(video)}>
-                      Ver ahora
-                    </button>
-                    <button className="btn-secondary sm" onClick={() => toggleFavorite(video.id)}>
-                      {favoritesIds.includes(video.id) ? '✓ En Mi Lista' : '+ Mi Lista'}
-                    </button>
+                  <h3>{movie.titulo}</h3>
+                  <p>{movie.descripcion}</p>
+                  <button className="btn-primary sm" onClick={() => setSelectedVideo(movie)}>
+                    ▶ Reproducir
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '2.5rem' }}>
+            <h2 className="section-title">
+              {search ? `Series: "${search}"` : `Series • ${category}`} ({series.length})
+            </h2>
+            <Link to="/series" style={{ color: '#f87171', textDecoration: 'none', fontSize: '0.9rem' }}>
+              Ver todas las series →
+            </Link>
+          </div>
+          <div className="video-grid">
+            {series.map((serie) => (
+              <div key={serie.external_id} className="video-card">
+                <div className="thumb-box" style={{ height: '320px' }} onClick={() => setSelectedVideo(serie)}>
+                  <img
+                    src={serie.thumbnail_url}
+                    alt={serie.titulo}
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = makeFallbackPoster(serie.titulo);
+                    }}
+                  />
+                  <div className="play-overlay">▶</div>
+                </div>
+                <div className="card-body">
+                  <div className="card-meta">
+                    <span>{serie.categoria} • {serie.anio}</span>
+                    <span>⭐ {serie.rating}</span>
                   </div>
+                  <h3>{serie.titulo}</h3>
+                  <p>{serie.descripcion}</p>
+                  <button className="btn-primary sm" onClick={() => setSelectedVideo(serie)}>
+                    ▶ Reproducir
+                  </button>
                 </div>
               </div>
             ))}
