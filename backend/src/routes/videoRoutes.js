@@ -4,54 +4,58 @@ const { verifyToken, isAdmin } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-router.get('/external/search', verifyToken, async (req, res) => {
-  const query = (req.query.q || 'avengers').trim();
+async function fetchExternalMovies(term, limit = 16) {
+  const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=movie&entity=movie&limit=${limit}`;
+  const response = await fetch(url);
+  const data = await response.json();
+
+  return (data.results || [])
+    .filter((item) => item.previewUrl)
+    .map((item) => ({
+      id: item.trackId,
+      external_id: item.trackId,
+      titulo: item.trackName,
+      descripcion: item.longDescription || item.shortDescription || `Película recomendada: ${item.trackName}`,
+      categoria: item.primaryGenreName || 'Cine',
+      anio: item.releaseDate ? new Date(item.releaseDate).getFullYear() : 2025,
+      duracion: item.trackTimeMillis
+        ? `${Math.round(item.trackTimeMillis / 60000)} min`
+        : 'Tráiler HD',
+      thumbnail_url: item.artworkUrl100
+        ? item.artworkUrl100.replace('100x100bb', '600x600bb')
+        : 'https://via.placeholder.com/600x600?text=Sin+Imagen',
+      video_url: item.previewUrl,
+      fuente: 'API Global',
+      isExternal: true,
+    }));
+}
+
+// GET /api/videos/external/recommended - Peliculas recomendadas al iniciar sesion
+router.get('/external/recommended', verifyToken, async (req, res) => {
   try {
-    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=movie&entity=movie&limit=12`;
-    const response = await fetch(url);
-    const data = await response.json();
-
-    const results = (data.results || [])
-      .filter((item) => item.previewUrl)
-      .map((item) => ({
-        external_id: item.trackId,
-        titulo: item.trackName,
-        descripcion: item.longDescription || item.shortDescription || `Tráiler oficial de ${item.trackName}`,
-        categoria: item.primaryGenreName || 'Cine',
-        anio: item.releaseDate ? new Date(item.releaseDate).getFullYear() : 2024,
-        duracion: item.trackTimeMillis
-          ? `${Math.round(item.trackTimeMillis / 60000)} min`
-          : 'Tráiler HD',
-        thumbnail_url: item.artworkUrl100
-          ? item.artworkUrl100.replace('100x100bb', '600x600bb')
-          : 'https://via.placeholder.com/600x400?text=Video',
-        video_url: item.previewUrl,
-        fuente: 'API Externa (Apple Trailers)',
-      }));
-
-    res.json({ query, total: results.length, results });
+    const terms = ['marvel', 'star wars', 'pixar', 'inception'];
+    const randomTerm = terms[Math.floor(Math.random() * terms.length)];
+    const results = await fetchExternalMovies(randomTerm, 16);
+    res.json({ results });
   } catch (error) {
-    console.error('Error consultando API externa:', error.message);
-    res.json({
-      query,
-      total: 1,
-      results: [
-        {
-          external_id: 'fallback-1',
-          titulo: `Resultado Demo: ${query}`,
-          descripcion: 'Vista previa de respaldo cuando no hay conexión externa.',
-          categoria: 'Demo',
-          anio: 2025,
-          duracion: '10 min',
-          thumbnail_url: 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Big_buck_bunny_poster_big.jpg/640px-Big_buck_bunny_poster_big.jpg',
-          video_url: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-          fuente: 'Respaldo Local',
-        },
-      ],
-    });
+    console.error('Error cargando recomendaciones:', error.message);
+    res.json({ results: [] });
   }
 });
 
+// GET /api/videos/external/search?q=termino - Busqueda en tiempo real
+router.get('/external/search', verifyToken, async (req, res) => {
+  const query = (req.query.q || 'avengers').trim();
+  try {
+    const results = await fetchExternalMovies(query, 20);
+    res.json({ query, total: results.length, results });
+  } catch (error) {
+    console.error('Error consultando API externa:', error.message);
+    res.status(500).json({ message: 'Error al buscar películas en la API' });
+  }
+});
+
+// GET /api/videos/favorites/me
 router.get('/favorites/me', verifyToken, async (req, res) => {
   try {
     const result = await pool.query(
@@ -67,6 +71,7 @@ router.get('/favorites/me', verifyToken, async (req, res) => {
   }
 });
 
+// POST /api/videos/favorites/:videoId
 router.post('/favorites/:videoId', verifyToken, async (req, res) => {
   try {
     const { videoId } = req.params;
@@ -87,6 +92,7 @@ router.post('/favorites/:videoId', verifyToken, async (req, res) => {
   }
 });
 
+// GET /api/videos/admin/stats
 router.get('/admin/stats', verifyToken, isAdmin, async (req, res) => {
   try {
     const totalVideos = await pool.query('SELECT COUNT(*) FROM videos');
@@ -105,6 +111,7 @@ router.get('/admin/stats', verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+// GET /api/videos
 router.get('/', verifyToken, async (req, res) => {
   try {
     const { categoria, search } = req.query;
@@ -129,6 +136,7 @@ router.get('/', verifyToken, async (req, res) => {
   }
 });
 
+// POST /api/videos
 router.post('/', verifyToken, isAdmin, async (req, res) => {
   try {
     const { titulo, descripcion, categoria, anio, duracion, thumbnail_url, video_url, fuente } = req.body;
@@ -157,6 +165,7 @@ router.post('/', verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+// PUT /api/videos/:id
 router.put('/:id', verifyToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
@@ -179,6 +188,7 @@ router.put('/:id', verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+// DELETE /api/videos/:id
 router.delete('/:id', verifyToken, isAdmin, async (req, res) => {
   try {
     const { id } = req.params;
@@ -189,6 +199,7 @@ router.delete('/:id', verifyToken, isAdmin, async (req, res) => {
   }
 });
 
+// POST /api/videos/:id/view
 router.post('/:id/view', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;

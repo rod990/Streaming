@@ -4,8 +4,8 @@ import api from '../services/api';
 export default function Login({ onLoginSuccess }) {
   const [isRegister, setIsRegister] = useState(false);
   const [nombre, setNombre] = useState('');
-  const [email, setEmail] = useState('usuario@streaming.cl');
-  const [password, setPassword] = useState('123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -21,32 +21,19 @@ export default function Login({ onLoginSuccess }) {
       localStorage.setItem('user', JSON.stringify(data.user));
       onLoginSuccess(data.user);
     } catch (err) {
-      setError(err.response?.data?.message || 'Error de autenticación');
+      setError(err.response?.data?.message || 'Correo o contraseña incorrectos');
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillDemo = (demoEmail) => {
-    setIsRegister(false);
-    setEmail(demoEmail);
-    setPassword('123456');
   };
 
   return (
     <div className="login-page">
       <div className="login-card">
         <h1>STREAM<span>GLOBAL</span></h1>
-        <p className="subtitle">Plataforma Global de Streaming • Evaluación 2</p>
-
-        <div className="demo-buttons">
-          <button type="button" onClick={() => fillDemo('admin@streaming.cl')} className="btn-chip">
-            Credencial Admin
-          </button>
-          <button type="button" onClick={() => fillDemo('usuario@streaming.cl')} className="btn-chip">
-            Credencial Suscriptor
-          </button>
-        </div>
+        <p className="subtitle">
+          {isRegister ? 'Crea tu cuenta para disfrutar del catálogo' : 'Inicia sesión para continuar'}
+        </p>
 
         <form onSubmit={handleSubmit}>
           {isRegister && (
@@ -56,7 +43,7 @@ export default function Login({ onLoginSuccess }) {
                 type="text"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
-                placeholder="Ej: Camila Rojas"
+                placeholder="Tu nombre"
                 required
               />
             </div>
@@ -68,6 +55,7 @@ export default function Login({ onLoginSuccess }) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="correo@ejemplo.com"
               required
             />
           </div>
@@ -78,6 +66,7 @@ export default function Login({ onLoginSuccess }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
               required
             />
           </div>
@@ -85,14 +74,14 @@ export default function Login({ onLoginSuccess }) {
           {error && <div className="alert-error">{error}</div>}
 
           <button type="submit" className="btn-primary full" disabled={loading}>
-            {loading ? 'Procesando...' : isRegister ? 'Crear cuenta' : 'Ingresar a la plataforma'}
+            {loading ? 'Ingresando...' : isRegister ? 'Registrarse' : 'Iniciar sesión'}
           </button>
         </form>
 
         <p className="toggle-auth">
-          {isRegister ? '¿Ya tienes cuenta?' : '¿Nuevo en StreamGlobal?'}{' '}
-          <span onClick={() => setIsRegister(!isRegister)}>
-            {isRegister ? 'Inicia sesión' : 'Regístrate aquí'}
+          {isRegister ? '¿Ya tienes cuenta?' : '¿Primera vez en StreamGlobal?'}{' '}
+          <span onClick={() => { setIsRegister(!isRegister); setError(''); }}>
+            {isRegister ? 'Inicia sesión' : 'Regístrate ahora'}
           </span>
         </p>
       </div>

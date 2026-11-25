@@ -12,8 +12,7 @@ export default function Navbar({ user, onLogout }) {
           STREAM<span>GLOBAL</span>
         </Link>
         <nav className="nav-links">
-          <Link to="/" className={isActive('/')}>Catálogo</Link>
-          <Link to="/buscar-api" className={isActive('/buscar-api')}>Buscador API Videos</Link>
+          <Link to="/" className={isActive('/')}>Películas y Catálogo</Link>
           <Link to="/mi-lista" className={isActive('/mi-lista')}>Mi Lista</Link>
           {user?.rol === 'admin' && (
             <Link to="/admin" className={isActive('/admin')}>Panel Admin</Link>
@@ -22,9 +21,6 @@ export default function Navbar({ user, onLogout }) {
       </div>
 
       <div className="navbar-right">
-        <span className={`role-badge ${user?.rol}`}>
-          {user?.rol === 'admin' ? 'ADMIN' : 'SUSCRIPTOR'}
-        </span>
         <span className="user-email">{user?.email}</span>
         <button onClick={onLogout} className="btn-outline">Cerrar sesión</button>
       </div>
